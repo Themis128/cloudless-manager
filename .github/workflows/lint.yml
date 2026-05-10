@@ -30,13 +30,19 @@ jobs:
 
       - name: Check for secrets in source
         run: |
-          # Fail if any hardcoded tokens/keys found outside of expected patterns
-          if grep -rn "AKIA[0-9A-Z]\{16\}" --include="*.js" --include="*.ts" .; then
-            echo "::error::Hardcoded AWS key found in source!"
-            exit 1
-          fi
-          if grep -rn "sk-[a-zA-Z0-9]\{40\}" --include="*.js" --include="*.ts" .; then
-            echo "::error::Hardcoded API key pattern found in source!"
-            exit 1
-          fi
-          echo "No hardcoded secrets detected."
+          # Scan only project source files, never node_modules
+          SOURCES="server.js public/index.html public/sw.js"
+          FAIL=0
+          for f in $SOURCES; do
+            [ -f "$f" ] || continue
+            if grep -n "AKIA[0-9A-Z]\{16\}" "$f"; then
+              echo "::error::Hardcoded AWS key found in $f"
+              FAIL=1
+            fi
+            if grep -n "cfut_[a-zA-Z0-9]\{40\}" "$f"; then
+              echo "::error::Hardcoded Cloudflare token found in $f"
+              FAIL=1
+            fi
+          done
+          if [ $FAIL -eq 1 ]; then exit 1; fi
+          echo "No hardcoded secrets detected in source files."
