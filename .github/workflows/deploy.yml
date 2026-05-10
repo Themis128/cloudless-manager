@@ -71,7 +71,9 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl -n cloudless rollout status deployment/cloudless-manager --timeout=120s
+          # maxSurge:0 + hard anti-affinity = sequential: pod1 ready → evict old2 → pod2 ready
+          # Two full pull+start cycles on Pi hardware; 240s is the safe upper bound.
+          kubectl -n cloudless rollout status deployment/cloudless-manager --timeout=240s
 
       - name: Show pod placement
         run: |
