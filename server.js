@@ -61,7 +61,28 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Static asset caching — tells Cloudflare edge to cache these at PoPs worldwide.
+// sw.js is handled above (no-store). index.html gets no-cache so deploys are
+// picked up immediately. Everything else (JS/CSS/icons/fonts) is content-addressed
+// by the build hash, so it's safe to cache permanently.
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    // All responses: tell CDN to vary on encoding (gzip/br)
+    res.setHeader('Vary', 'Accept-Encoding');
+    if (/\.(js|css|woff2?|ttf|eot|otf|png|jpg|jpeg|gif|svg|ico|webp)$/i.test(filePath)) {
+      // Build-hashed assets — safe to cache indefinitely at CF edge PoPs
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else if (filePath.endsWith('.json')) {
+      // manifest.json — refresh daily
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    } else {
+      // HTML (index.html) — always revalidate so new deploys are picked up
+      res.setHeader('Cache-Control', 'public, no-cache');
+    }
+  }
+}));
 
 // ─── Kubernetes ───────────────────────────────────────────────────────────────
 const kc = new k8s.KubeConfig();
