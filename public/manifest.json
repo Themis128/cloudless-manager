@@ -1,0 +1,44 @@
+{
+  "name": "Cloudless Manager",
+  "short_name": "Cloudless",
+  "description": "Web management dashboard for cloudless.online k3s cluster",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1117",
+  "theme_color": "#38bdf8",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "description": "Cluster overview"
+    },
+    {
+      "name": "Workloads",
+      "url": "/#workloads",
+      "description": "Pods and deployments"
+    },
+    {
+      "name": "Logs",
+      "url": "/#logs",
+      "description": "Pod log viewer"
+    }
+  ],
+  "categories": ["utilities", "productivity"],
+  "lang": "en"
+}

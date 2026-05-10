@@ -1,0 +1,42 @@
+name: Lint & Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: ESLint + npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Security audit
+        run: npm audit --audit-level=high || true
+
+      - name: Check for secrets in source
+        run: |
+          # Fail if any hardcoded tokens/keys found outside of expected patterns
+          if grep -rn "AKIA[0-9A-Z]\{16\}" --include="*.js" --include="*.ts" .; then
+            echo "::error::Hardcoded AWS key found in source!"
+            exit 1
+          fi
+          if grep -rn "sk-[a-zA-Z0-9]\{40\}" --include="*.js" --include="*.ts" .; then
+            echo "::error::Hardcoded API key pattern found in source!"
+            exit 1
+          fi
+          echo "No hardcoded secrets detected."

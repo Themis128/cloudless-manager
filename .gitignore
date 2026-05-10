@@ -1,0 +1,6 @@
+node_modules/
+*.env
+.env
+.env.local
+SSO-SETUP.md
+k8s-temp/

@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cloudless Manager [Training Project]</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#38bdf8"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Cloudless"/>
+<link rel="apple-touch-icon" href="/icons/icon.svg"/>
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:      #0f1117;
+  --surface: #1a1d27;
+  --border:  #2a2d3e;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --accent:  #38bdf8;
+  --green:   #4ade80;
+  --red:     #f87171;
+  --yellow:  #fbbf24;
+  --purple:  #a78bfa;
+  --sidebar: 220px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;font-size:14px}
+
+/* ── Sidebar ── */
+#sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.logo{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.logo h1{font-size:16px;font-weight:700;color:var(--accent)}
+.logo span{font-size:11px;color:var(--muted)}
+nav{flex:1;padding:12px 8px;overflow-y:auto}
+nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s;cursor:pointer}
+nav a:hover{background:rgba(56,189,248,.08);color:var(--text)}
+nav a.active{background:rgba(56,189,248,.15);color:var(--accent)}
+nav a .icon{width:16px;text-align:center;font-size:15px}
+.nav-section{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:12px 12px 4px}
+.status-dot{width:8px;height:8px;border-radius:50%;margin-left:auto;flex-shrink:0}
+.dot-green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot-red{background:var(--red)}
+.dot-yellow{background:var(--yellow)}
+
+/* ── Main ── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
+.topbar h2{font-size:18px;font-weight:600}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:rgba(255,255,255,.06)}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.btn.primary:hover{opacity:.9}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(248,113,113,.1)}
+.btn.sm{padding:4px 10px;font-size:12px}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* ── Cards ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.card-value{font-size:28px;font-weight:700;line-height:1}
+.card-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.card.green .card-value{color:var(--green)}
+.card.red .card-value{color:var(--red)}
+.card.blue .card-value{color:var(--accent)}
+.card.yellow .card-value{color:var(--yellow)}
+
+/* ── Tables ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px}
+.table-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.table-header h3{font-size:14px;font-weight:600}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 16px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+td{padding:11px 16px;border-bottom:1px solid rgba(42,45,62,.6);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge.running,.badge.ready,.badge.healthy{background:rgba(74,222,128,.15);color:var(--green)}
+.badge.pending,.badge.warning{background:rgba(251,191,36,.15);color:var(--yellow)}
+.badge.failed,.badge.error,.badge.notready{background:rgba(248,113,113,.15);color:var(--red)}
+.badge.unknown{background:rgba(100,116,139,.15);color:var(--muted)}
+.badge.normal{background:rgba(56,189,248,.1);color:var(--accent)}
+.badge.warning-event{background:rgba(251,191,36,.15);color:var(--yellow)}
+.mono{font-family:'JetBrains Mono','Fira Code',monospace;font-size:12px}
+
+/* ── Filters ── */
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+select,input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+
+/* ── Logs ── */
+#log-output{background:#0a0d14;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:12px;line-height:1.6;height:500px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;color:#a0aec0}
+#log-output .err{color:var(--red)}
+#log-output .warn{color:var(--yellow)}
+
+/* ── Charts ── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.chart-card h4{font-size:13px;font-weight:600;margin-bottom:16px;color:var(--muted)}
+.chart-wrap{position:relative;height:160px}
+
+/* ── Nodes grid ── */
+.nodes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:24px}
+.node-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px}
+.node-card.ready{border-color:rgba(74,222,128,.3)}
+.node-card.notready{border-color:rgba(248,113,113,.3)}
+.node-name{font-size:16px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.node-ip{font-size:12px;color:var(--muted);font-family:monospace;margin-bottom:12px}
+.node-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.node-meta-item label{font-size:10px;color:var(--muted);text-transform:uppercase;display:block}
+.node-meta-item span{font-size:13px;font-weight:500}
+
+/* ── DNS ── */
+.dns-type{display:inline-block;width:44px;text-align:center;padding:2px 0;border-radius:3px;font-size:11px;font-weight:700;background:rgba(167,139,250,.15);color:var(--purple)}
+
+/* ── Loading/Empty ── */
+.loading{text-align:center;padding:40px;color:var(--muted)}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:40px;color:var(--muted);font-style:italic}
+.error-msg{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:12px 16px;color:var(--red);margin-bottom:16px;font-size:13px}
+
+/* ── Page visibility ── */
+.page{display:none}.page.active{display:block}
+
+/* ── Training banner ── */
+#training-banner{
+  position:fixed;bottom:0;left:0;right:0;z-index:1000;
+  background:rgba(251,191,36,.08);
+  border-top:1px solid rgba(251,191,36,.25);
+  padding:7px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+#training-banner p{
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:11px;color:rgba(251,191,36,.85);margin:0;line-height:1.4;
+}
+#training-banner strong{font-weight:700}
+#training-banner button{
+  background:none;border:none;color:rgba(251,191,36,.5);
+  font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;
+  transition:color .15s;
+}
+#training-banner button:hover{color:rgba(251,191,36,.9)}
+.training-tag{
+  font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(251,191,36,.7);background:rgba(251,191,36,.1);
+  border:1px solid rgba(251,191,36,.2);border-radius:3px;
+  padding:1px 5px;margin-left:6px;vertical-align:middle;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════════════ -->
+<aside id="sidebar">
+  <div class="logo">
+    <h1>☁ Cloudless Manager <span class="training-tag">Training</span></h1>
+    <span id="cluster-status">Connecting…</span>
+  </div>
+  <nav>
+    <div class="nav-section">Overview</div>
+    <a class="active" onclick="nav('overview')" id="nav-overview"><span class="icon">📊</span> Dashboard</a>
+
+    <div class="nav-section">Cluster</div>
+    <a onclick="nav('nodes')"       id="nav-nodes">      <span class="icon">🖥️</span> Nodes</a>
+    <a onclick="nav('workloads')"   id="nav-workloads">  <span class="icon">📦</span> Workloads</a>
+    <a onclick="nav('logs')"        id="nav-logs">       <span class="icon">📋</span> Logs</a>
+    <a onclick="nav('events')"      id="nav-events">     <span class="icon">⚡</span> Events</a>
+
+    <div class="nav-section">Infrastructure</div>
+    <a onclick="nav('cloudflare')"   id="nav-cloudflare">  <span class="icon">🔶</span> Cloudflare <span class="status-dot" id="cf-dot"></span></a>
+    <a onclick="nav('lambda')"       id="nav-lambda">      <span class="icon">λ</span> Lambda / AWS</a>
+    <a onclick="nav('troubleshoot')" id="nav-troubleshoot"><span class="icon">🔧</span> Troubleshoot</a>
+  </nav>
+</aside>
+
+<!-- ══ MAIN ════════════════════════════════════════════════════════════════ -->
+<div id="main">
+  <div class="topbar">
+    <h2 id="page-title">Dashboard</h2>
+    <div class="topbar-actions">
+      <span id="last-refresh" style="color:var(--muted);font-size:12px"></span>
+      <button class="btn" onclick="refreshCurrent()">↻ Refresh</button>
+      <button class="btn primary" id="pwa-install-btn" onclick="pwaInstall()" style="display:none">⬇ Install App</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── OVERVIEW ── -->
+    <div class="page active" id="page-overview">
+      <div class="cards" id="overview-cards">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="table-wrap">
+          <div class="table-header"><h3>Nodes</h3></div>
+          <table><thead><tr><th>Name</th><th>Status</th><th>Roles</th><th>Version</th></tr></thead>
+          <tbody id="overview-nodes"></tbody></table>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header"><h3>Recent Events</h3></div>
+          <table><thead><tr><th>Type</th><th>Object</th><th>Reason</th><th>Message</th></tr></thead>
+          <tbody id="overview-events"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NODES ── -->
+    <div class="page" id="page-nodes">
+      <div class="nodes-grid" id="nodes-grid">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── WORKLOADS ── -->
+    <div class="page" id="page-workloads">
+      <div class="filters">
+        <select id="wl-ns"><option value="">All namespaces</option></select>
+        <input type="text" id="wl-search" placeholder="Filter…" oninput="renderWorkloads()">
+        <div style="margin-left:auto">
+          <label style="color:var(--muted);font-size:12px;margin-right:8px">Show:</label>
+          <button class="btn sm" id="wl-tab-dep" onclick="setWlTab('dep')" style="background:rgba(56,189,248,.15);color:var(--accent)">Deployments</button>
+          <button class="btn sm" id="wl-tab-pod" onclick="setWlTab('pod')">Pods</button>
+        </div>
+      </div>
+      <!-- Deployments -->
+      <div id="wl-dep-view">
+        <div class="table-wrap">
+          <div class="table-header"><h3>Deployments</h3><span id="dep-count" style="color:var(--muted);font-size:12px"></span></div>
+          <table><thead><tr><th>Namespace</th><th>Name</th><th>Ready</th><th>Image</th><th>Age</th><th></th></tr></thead>
+          <tbody id="dep-tbody"></tbody></table>
+        </div>
+      </div>
+      <!-- Pods -->
+      <div id="wl-pod-view" style="display:none">
+        <div class="table-wrap">
+          <div class="table-header"><h3>Pods</h3><span id="pod-count" style="color:var(--muted);font-size:12px"></span></div>
+          <table><thead><tr><th>Namespace</th><th>Name</th><th>Status</th><th>Ready</th><th>Restarts</th><th>Node</th><th>Age</th><th></th></tr></thead>
+          <tbody id="pod-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOGS ── -->
+    <div class="page" id="page-logs">
+      <div class="filters" style="margin-bottom:12px">
+        <select id="log-ns"   onchange="loadLogPods()"><option value="">— namespace —</option></select>
+        <select id="log-pod"  onchange="loadLogContainers()"><option value="">— pod —</option></select>
+        <select id="log-cont"><option value="">— container —</option></select>
+        <select id="log-lines">
+          <option value="100">100 lines</option>
+          <option value="200" selected>200 lines</option>
+          <option value="500">500 lines</option>
+          <option value="1000">1000 lines</option>
+        </select>
+        <button class="btn primary" onclick="fetchLogs()">▶ Fetch</button>
+        <button class="btn" id="stream-btn" onclick="toggleStream()">⏵ Stream</button>
+        <button class="btn" onclick="clearLogs()">✕ Clear</button>
+        <label style="color:var(--muted);font-size:12px;margin-left:auto">
+          <input type="checkbox" id="log-scroll" checked> Auto-scroll
+        </label>
+      </div>
+      <div id="log-output">Select a namespace and pod, then click Fetch or Stream.</div>
+    </div>
+
+    <!-- ── EVENTS ── -->
+    <div class="page" id="page-events">
+      <div class="filters">
+        <select id="ev-ns"><option value="">All namespaces</option></select>
+        <select id="ev-type">
+          <option value="">All types</option>
+          <option value="Warning">Warning</option>
+          <option value="Normal">Normal</option>
+        </select>
+        <button class="btn" onclick="loadEvents()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Namespace</th><th>Type</th><th>Reason</th><th>Object</th><th>Message</th><th>Count</th><th>Last Seen</th></tr></thead>
+        <tbody id="ev-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ── CLOUDFLARE ── -->
+    <div class="page" id="page-cloudflare">
+      <div class="cards" id="cf-cards" style="margin-bottom:24px"></div>
+      <!-- DNS -->
+      <div class="table-wrap" style="margin-bottom:24px">
+        <div class="table-header">
+          <h3>DNS Records</h3>
+          <button class="btn sm primary" onclick="showAddDns()">+ Add Record</button>
+        </div>
+        <table><thead><tr><th>Type</th><th>Name</th><th>Content</th><th>Proxied</th><th>TTL</th><th></th></tr></thead>
+        <tbody id="dns-tbody"></tbody></table>
+      </div>
+      <!-- Add DNS form (hidden) -->
+      <div id="dns-add-form" style="display:none" class="table-wrap">
+        <div class="table-header"><h3>New DNS Record</h3></div>
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:12px;align-items:end">
+          <div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">TYPE</label>
+            <select id="dns-type"><option>A</option><option>CNAME</option><option>TXT</option><option>MX</option></select></div>
+          <div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">NAME</label>
+            <input id="dns-name" placeholder="subdomain"/></div>
+          <div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">CONTENT</label>
+            <input id="dns-content" placeholder="IP or target"/></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn primary" onclick="addDns()">Add</button>
+            <button class="btn" onclick="document.getElementById('dns-add-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TROUBLESHOOT ── -->
+    <div class="page" id="page-troubleshoot">
+      <div class="cards" id="diag-cards" style="margin-bottom:24px"></div>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <div class="table-header">
+          <h3>Issues Detected</h3>
+          <button class="btn" onclick="loadTroubleshoot()">↻ Refresh</button>
+        </div>
+        <table><thead><tr><th>Severity</th><th>Category</th><th>Resource</th><th>Message</th></tr></thead>
+        <tbody id="diag-tbody"></tbody></table>
+      </div>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <div class="table-header"><h3>Recent Warning Events</h3></div>
+        <table><thead><tr><th>Namespace</th><th>Object</th><th>Reason</th><th>Message</th><th>Count</th><th>Last Seen</th></tr></thead>
+        <tbody id="diag-events-tbody"></tbody></table>
+      </div>
+      <div class="table-wrap" style="margin-bottom:24px">
+        <div class="table-header"><h3>Services</h3><span id="svc-count" style="color:var(--muted);font-size:12px"></span></div>
+        <table><thead><tr><th>Namespace</th><th>Name</th><th>Type</th><th>Cluster IP</th><th>Ports</th><th>Age</th></tr></thead>
+        <tbody id="svc-tbody"></tbody></table>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><h3>Persistent Volume Claims</h3><span id="pvc-count" style="color:var(--muted);font-size:12px"></span></div>
+        <table><thead><tr><th>Namespace</th><th>Name</th><th>Status</th><th>Capacity</th><th>Storage Class</th><th>Access Modes</th><th>Age</th></tr></thead>
+        <tbody id="pvc-tbody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ── LAMBDA ── -->
+    <div class="page" id="page-lambda">
+      <div class="filters">
+        <select id="lambda-fn"><option value="">All functions</option></select>
+        <select id="lambda-hours">
+          <option value="1">Last 1h</option>
+          <option value="3" selected>Last 3h</option>
+          <option value="6">Last 6h</option>
+          <option value="24">Last 24h</option>
+        </select>
+        <button class="btn" onclick="loadLambda()">Refresh</button>
+        <label style="display:flex;align-items:center;gap:6px;color:#94a3b8;font-size:13px;cursor:pointer;margin-left:8px;">
+          <input type="checkbox" id="lambda-autorefresh" onchange="toggleLambdaAutoRefresh()" style="accent-color:#6366f1;width:15px;height:15px;cursor:pointer;">
+          Auto-refresh (60s)
+        </label>
+        <span id="lambda-countdown" style="font-size:12px;color:#6366f1;min-width:36px;display:none;"></span>
+      </div>
+      <div class="cards" id="lambda-cards"></div>
+      <div class="chart-grid">
+        <div class="chart-card"><h4>Invocations / 5 min</h4><div class="chart-wrap"><canvas id="chart-inv"></canvas></div></div>
+        <div class="chart-card"><h4>Errors / 5 min</h4><div class="chart-wrap"><canvas id="chart-err"></canvas></div></div>
+        <div class="chart-card"><h4>Duration avg (ms)</h4><div class="chart-wrap"><canvas id="chart-dur"></canvas></div></div>
+        <div class="chart-card"><h4>Throttles / 5 min</h4><div class="chart-wrap"><canvas id="chart-thr"></canvas></div></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><h3>Functions</h3></div>
+        <table><thead><tr><th>Name</th><th>Runtime</th><th>Memory</th><th>Timeout</th><th>Package size</th><th>Last modified</th></tr></thead>
+        <tbody id="lambda-tbody"></tbody></table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentPage = 'overview';
+let allPods = [], allDeps = [], allNs = [];
+let wlTab = 'dep';
+let logWs = null;
+let charts = {};
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-'  + page).classList.add('active');
+  currentPage = page;
+  const titles = { overview:'Dashboard', nodes:'Nodes', workloads:'Workloads',
+    logs:'Logs', events:'Events', cloudflare:'Cloudflare', lambda:'Lambda / AWS',
+    troubleshoot:'Troubleshoot' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  loadPage(page);
+}
+
+function refreshCurrent() { loadPage(currentPage); }
+
+function loadPage(page) {
+  if (page !== 'lambda') stopLambdaAutoRefresh();
+  setLastRefresh();
+  if (page === 'overview')    loadOverview();
+  if (page === 'nodes')       loadNodes();
+  if (page === 'workloads')   loadWorkloads();
+  if (page === 'logs')        initLogs();
+  if (page === 'events')      loadEvents();
+  if (page === 'cloudflare')   loadCloudflare();
+  if (page === 'lambda')       loadLambda();
+  if (page === 'troubleshoot') loadTroubleshoot();
+}
+
+function setLastRefresh() {
+  document.getElementById('last-refresh').textContent =
+    'Updated ' + new Date().toLocaleTimeString();
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function fmtAge(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60)  return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm';
+  if (s < 86400) return Math.floor(s/3600) + 'h';
+  return Math.floor(s/86400) + 'd';
+}
+
+function fmtBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(1) + ' MB';
+}
+
+function statusBadge(s) {
+  const cls = { Running:'running', Ready:'ready', Healthy:'healthy',
+    Pending:'pending', Failed:'failed', Error:'error',
+    NotReady:'notready', Unknown:'unknown', Normal:'normal',
+    Warning:'warning-event' }[s] || 'unknown';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+
+function showError(container, msg) {
+  document.getElementById(container).innerHTML =
+    `<tr><td colspan="20"><div class="error-msg">⚠ ${msg}</div></td></tr>`;
+}
+
+// ─── Overview ─────────────────────────────────────────────────────────────────
+async function loadOverview() {
+  try {
+    const [nodes, pods, events] = await Promise.all([
+      api('/api/nodes'),
+      api('/api/pods'),
+      api('/api/events')
+    ]);
+
+    const nodesReady  = nodes.filter(n => n.status === 'Ready').length;
+    const podsRunning = pods.filter(p => p.status === 'Running').length;
+    const podsFailed  = pods.filter(p => p.status === 'Failed').length;
+    const warnings    = events.filter(e => e.type === 'Warning').length;
+
+    document.getElementById('overview-cards').innerHTML = `
+      <div class="card ${nodesReady === nodes.length ? 'green':'red'}">
+        <div class="card-label">Nodes</div>
+        <div class="card-value">${nodesReady}/${nodes.length}</div>
+        <div class="card-sub">Ready</div>
+      </div>
+      <div class="card ${podsFailed > 0 ? 'red':'green'}">
+        <div class="card-label">Pods Running</div>
+        <div class="card-value">${podsRunning}</div>
+        <div class="card-sub">${podsFailed} failed</div>
+      </div>
+      <div class="card blue">
+        <div class="card-label">Total Pods</div>
+        <div class="card-value">${pods.length}</div>
+        <div class="card-sub">across ${[...new Set(pods.map(p=>p.namespace))].length} namespaces</div>
+      </div>
+      <div class="card ${warnings > 0 ? 'yellow':'green'}">
+        <div class="card-label">Warning Events</div>
+        <div class="card-value">${warnings}</div>
+        <div class="card-sub">last 50 events</div>
+      </div>
+    `;
+
+    document.getElementById('overview-nodes').innerHTML = nodes.map(n => `
+      <tr>
+        <td class="mono">${n.name}</td>
+        <td>${statusBadge(n.status)}</td>
+        <td><span style="color:var(--accent)">${n.roles.join(', ') || '—'}</span></td>
+        <td class="mono" style="color:var(--muted)">${n.version}</td>
+      </tr>`).join('');
+
+    document.getElementById('overview-events').innerHTML = events.slice(0,8).map(e => `
+      <tr>
+        <td>${statusBadge(e.type)}</td>
+        <td class="mono" style="font-size:11px">${e.object}</td>
+        <td style="color:var(--yellow);font-size:12px">${e.reason}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)" title="${e.message}">${e.message}</td>
+      </tr>`).join('');
+
+    document.getElementById('cluster-status').textContent = `${nodesReady}/${nodes.length} nodes ready`;
+  } catch(e) {
+    document.getElementById('overview-cards').innerHTML =
+      `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+// ─── Nodes ────────────────────────────────────────────────────────────────────
+async function loadNodes() {
+  document.getElementById('nodes-grid').innerHTML = '<div class="loading"><div class="spinner"></div><div>Loading nodes…</div></div>';
+  try {
+    const nodes = await api('/api/nodes');
+    document.getElementById('nodes-grid').innerHTML = nodes.map(n => `
+      <div class="node-card ${n.status.toLowerCase()}">
+        <div class="node-name">
+          ${n.status === 'Ready' ? '🟢' : '🔴'} ${n.name}
+          <span class="badge ${n.status === 'Ready' ? 'running':'failed'}" style="margin-left:auto">${n.status}</span>
+        </div>
+        <div class="node-ip">${n.internalIP || '—'}</div>
+        <div class="node-meta">
+          <div class="node-meta-item"><label>Roles</label><span>${n.roles.join(', ') || 'worker'}</span></div>
+          <div class="node-meta-item"><label>Version</label><span class="mono">${n.version}</span></div>
+          <div class="node-meta-item"><label>CPU</label><span>${n.cpu} cores</span></div>
+          <div class="node-meta-item"><label>Memory</label><span>${n.memoryGi} GiB</span></div>
+          <div class="node-meta-item"><label>Max Pods</label><span>${n.podCount}</span></div>
+          <div class="node-meta-item"><label>Arch</label><span>${n.arch}</span></div>
+          <div class="node-meta-item" style="grid-column:1/-1"><label>OS</label><span>${n.os}</span></div>
+          <div class="node-meta-item" style="grid-column:1/-1"><label>Age</label><span>${fmtAge(n.age)}</span></div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('nodes-grid').innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+// ─── Workloads ────────────────────────────────────────────────────────────────
+async function loadWorkloads() {
+  try {
+    [allNs, allDeps, allPods] = await Promise.all([
+      api('/api/namespaces'),
+      api('/api/deployments'),
+      api('/api/pods')
+    ]);
+
+    const nsEl = document.getElementById('wl-ns');
+    const cur  = nsEl.value;
+    nsEl.innerHTML = '<option value="">All namespaces</option>' +
+      allNs.map(n => `<option${n===cur?' selected':''}>${n}</option>`).join('');
+
+    renderWorkloads();
+  } catch(e) {
+    document.getElementById('dep-tbody').innerHTML = `<tr><td colspan="6"><div class="error-msg">⚠ ${e.message}</div></td></tr>`;
+  }
+}
+
+function setWlTab(tab) {
+  wlTab = tab;
+  document.getElementById('wl-dep-view').style.display = tab==='dep' ? '' : 'none';
+  document.getElementById('wl-pod-view').style.display = tab==='pod' ? '' : 'none';
+  document.getElementById('wl-tab-dep').style.background = tab==='dep' ? 'rgba(56,189,248,.15)' : '';
+  document.getElementById('wl-tab-dep').style.color      = tab==='dep' ? 'var(--accent)' : '';
+  document.getElementById('wl-tab-pod').style.background = tab==='pod' ? 'rgba(56,189,248,.15)' : '';
+  document.getElementById('wl-tab-pod').style.color      = tab==='pod' ? 'var(--accent)' : '';
+}
+
+function renderWorkloads() {
+  const ns  = document.getElementById('wl-ns').value;
+  const q   = document.getElementById('wl-search').value.toLowerCase();
+
+  const deps = allDeps
+    .filter(d => (!ns || d.namespace===ns) && (!q || d.name.includes(q) || d.namespace.includes(q)));
+  const pods = allPods
+    .filter(p => (!ns || p.namespace===ns) && (!q || p.name.includes(q) || p.namespace.includes(q)));
+
+  document.getElementById('dep-count').textContent = `${deps.length} deployments`;
+  document.getElementById('pod-count').textContent = `${pods.length} pods`;
+
+  document.getElementById('dep-tbody').innerHTML = deps.length ? deps.map(d => `
+    <tr>
+      <td><span style="color:var(--muted)">${d.namespace}</span></td>
+      <td class="mono">${d.name}</td>
+      <td>${d.ready===d.desired+'/'+d.desired
+          ? statusBadge('Ready')
+          : `<span class="badge pending">${d.ready}/${d.desired}</span>`}</td>
+      <td class="mono" style="font-size:11px;color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.image}</td>
+      <td style="color:var(--muted)">${fmtAge(d.age)}</td>
+      <td><button class="btn sm danger" onclick="restartDep('${d.namespace}','${d.name}')">↺ Restart</button></td>
+    </tr>`).join('')
+    : '<tr><td colspan="6" class="empty">No deployments found</td></tr>';
+
+  document.getElementById('pod-tbody').innerHTML = pods.length ? pods.map(p => `
+    <tr>
+      <td><span style="color:var(--muted)">${p.namespace}</span></td>
+      <td class="mono" style="font-size:12px">${p.name}</td>
+      <td>${statusBadge(p.status)}</td>
+      <td class="mono">${p.ready}</td>
+      <td style="color:${p.restarts>0?'var(--yellow)':'var(--muted)'}">${p.restarts}</td>
+      <td style="color:var(--muted);font-size:12px">${p.node||'—'}</td>
+      <td style="color:var(--muted)">${fmtAge(p.age)}</td>
+      <td><button class="btn sm" onclick="goToLogs('${p.namespace}','${p.name}')">📋 Logs</button></td>
+    </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">No pods found</td></tr>';
+}
+
+async function restartDep(ns, name) {
+  if (!confirm(`Restart deployment ${ns}/${name}?`)) return;
+  try {
+    const r = await fetch(`/api/deployments/${ns}/${name}/restart`, { method:'POST' });
+    const d = await r.json();
+    if (d.success) { alert('✅ ' + d.message); loadWorkloads(); }
+    else alert('❌ ' + d.error);
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+function goToLogs(ns, pod) {
+  nav('logs');
+  setTimeout(async () => {
+    const nsEl = document.getElementById('log-ns');
+    nsEl.value = ns;
+    await loadLogPods();
+    document.getElementById('log-pod').value = pod;
+    await loadLogContainers();
+    fetchLogs();
+  }, 100);
+}
+
+// ─── Logs ─────────────────────────────────────────────────────────────────────
+async function initLogs() {
+  const ns = await api('/api/namespaces');
+  const el = document.getElementById('log-ns');
+  el.innerHTML = '<option value="">— namespace —</option>' + ns.map(n=>`<option>${n}</option>`).join('');
+}
+
+async function loadLogPods() {
+  const ns = document.getElementById('log-ns').value;
+  if (!ns) return;
+  const pods = await api('/api/pods?namespace=' + ns);
+  document.getElementById('log-pod').innerHTML =
+    '<option value="">— pod —</option>' + pods.map(p=>`<option>${p.name}</option>`).join('');
+  document.getElementById('log-cont').innerHTML = '<option value="">— container —</option>';
+}
+
+async function loadLogContainers() {
+  const ns  = document.getElementById('log-ns').value;
+  const pod = document.getElementById('log-pod').value;
+  if (!ns || !pod) return;
+  const pods = await api('/api/pods?namespace=' + ns);
+  const p = pods.find(x => x.name === pod);
+  const el = document.getElementById('log-cont');
+  el.innerHTML = '<option value="">— container —</option>' +
+    (p?.containers || []).map(c=>`<option>${c}</option>`).join('');
+}
+
+async function fetchLogs() {
+  const ns    = document.getElementById('log-ns').value;
+  const pod   = document.getElementById('log-pod').value;
+  const cont  = document.getElementById('log-cont').value;
+  const lines = document.getElementById('log-lines').value;
+  if (!ns || !pod) { alert('Select namespace and pod first'); return; }
+
+  const out = document.getElementById('log-output');
+  out.textContent = 'Loading…';
+  try {
+    const url = `/api/pods/${ns}/${pod}/logs?lines=${lines}${cont?'&container='+cont:''}`;
+    const data = await api(url);
+    renderLogs(data.logs || '(empty)');
+  } catch(e) { out.textContent = '⚠ ' + e.message; }
+}
+
+function renderLogs(text) {
+  const out = document.getElementById('log-output');
+  out.innerHTML = text.split('\n').map(line => {
+    if (/error|exception|fatal|panic/i.test(line)) return `<span class="err">${escHtml(line)}</span>`;
+    if (/warn|warning/i.test(line)) return `<span class="warn">${escHtml(line)}</span>`;
+    return escHtml(line);
+  }).join('\n');
+  if (document.getElementById('log-scroll').checked)
+    out.scrollTop = out.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function clearLogs() { document.getElementById('log-output').textContent = ''; }
+
+let streaming = false;
+function toggleStream() {
+  if (streaming) { stopStream(); } else { startStream(); }
+}
+
+function startStream() {
+  const ns   = document.getElementById('log-ns').value;
+  const pod  = document.getElementById('log-pod').value;
+  const cont = document.getElementById('log-cont').value;
+  const lines = document.getElementById('log-lines').value;
+  if (!ns || !pod) { alert('Select namespace and pod first'); return; }
+
+  stopStream();
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${proto}//${location.host}/ws/logs?namespace=${ns}&pod=${pod}&lines=${lines}${cont?'&container='+cont:''}`;
+  logWs = new WebSocket(url);
+  const out = document.getElementById('log-output');
+  out.textContent = '';
+
+  logWs.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'log') {
+      const span = document.createElement('span');
+      span.textContent = msg.data;
+      if (/error|exception|fatal/i.test(msg.data)) span.className = 'err';
+      else if (/warn/i.test(msg.data)) span.className = 'warn';
+      out.appendChild(span);
+      if (document.getElementById('log-scroll').checked) out.scrollTop = out.scrollHeight;
+    }
+  };
+  logWs.onopen  = () => { streaming = true; document.getElementById('stream-btn').textContent = '⏹ Stop'; };
+  logWs.onclose = () => { streaming = false; document.getElementById('stream-btn').textContent = '⏵ Stream'; };
+}
+
+function stopStream() {
+  if (logWs) { logWs.close(); logWs = null; }
+  streaming = false;
+  document.getElementById('stream-btn').textContent = '⏵ Stream';
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+async function loadEvents() {
+  const ns   = document.getElementById('ev-ns').value;
+  const type = document.getElementById('ev-type').value;
+  document.getElementById('ev-tbody').innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+  try {
+    let events = await api('/api/events' + (ns ? '?namespace='+ns : ''));
+    if (type) events = events.filter(e => e.type === type);
+    document.getElementById('ev-tbody').innerHTML = events.length ? events.map(e => `
+      <tr>
+        <td style="color:var(--muted)">${e.namespace}</td>
+        <td>${statusBadge(e.type)}</td>
+        <td style="color:var(--yellow)">${e.reason}</td>
+        <td class="mono" style="font-size:11px">${e.object}</td>
+        <td style="max-width:300px;font-size:12px;color:var(--muted)">${e.message}</td>
+        <td>${e.count}</td>
+        <td style="color:var(--muted);font-size:12px">${e.lastSeen ? new Date(e.lastSeen).toLocaleTimeString() : '—'}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="7" class="empty">No events</td></tr>';
+
+    // populate ns filter
+    if (document.getElementById('ev-ns').children.length <= 1) {
+      const ns2 = await api('/api/namespaces');
+      document.getElementById('ev-ns').innerHTML = '<option value="">All namespaces</option>' +
+        ns2.map(n=>`<option>${n}</option>`).join('');
+    }
+  } catch(e) { showError('ev-tbody', e.message); }
+}
+
+// ─── Cloudflare ───────────────────────────────────────────────────────────────
+async function loadCloudflare() {
+  try {
+    const [dns, tunnelData, certs] = await Promise.all([
+      api('/api/cloudflare/dns'),
+      api('/api/cloudflare/tunnel'),
+      api('/api/cloudflare/certs').catch(() => [])
+    ]);
+
+    const { tunnel, connections, healthy } = tunnelData;
+    const activeConns = connections || [];
+    const tunnelUp = healthy || tunnel?.status === 'healthy';
+
+    document.getElementById('cf-dot').className = `status-dot ${tunnelUp ? 'dot-green' : 'dot-red'}`;
+    document.getElementById('cf-cards').innerHTML = `
+      <div class="card ${tunnelUp ? 'green' : 'red'}">
+        <div class="card-label">Tunnel Status</div>
+        <div class="card-value" style="font-size:20px">${tunnelUp ? '🟢 Active' : '🔴 Down'}</div>
+        <div class="card-sub">${tunnel?.name || 'cloudless tunnel'}</div>
+      </div>
+      <div class="card blue">
+        <div class="card-label">DNS Records</div>
+        <div class="card-value">${dns.length}</div>
+        <div class="card-sub">${dns.filter(r=>r.proxied).length} proxied</div>
+      </div>
+      <div class="card green">
+        <div class="card-label">SSL Certs</div>
+        <div class="card-value">${certs.length}</div>
+        <div class="card-sub">${certs[0]?.status || (certs[0]?.type === 'universal' ? 'Universal SSL' : '—')}</div>
+      </div>
+    `;
+
+    document.getElementById('dns-tbody').innerHTML = dns.map(r => `
+      <tr>
+        <td><span class="dns-type">${r.type}</span></td>
+        <td class="mono">${r.name}</td>
+        <td class="mono" style="color:var(--muted)">${r.content}</td>
+        <td>${r.proxied ? '🟠 Proxied' : '<span style="color:var(--muted)">DNS only</span>'}</td>
+        <td style="color:var(--muted)">${r.ttl === 1 ? 'Auto' : r.ttl + 's'}</td>
+        <td><button class="btn sm danger" onclick="deleteDns('${r.id}','${r.name}')">✕</button></td>
+      </tr>`).join('');
+  } catch(e) {
+    document.getElementById('cf-cards').innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+function showAddDns() {
+  document.getElementById('dns-add-form').style.display = '';
+}
+
+async function addDns() {
+  const body = {
+    type:    document.getElementById('dns-type').value,
+    name:    document.getElementById('dns-name').value,
+    content: document.getElementById('dns-content').value,
+    ttl:     1,
+    proxied: document.getElementById('dns-type').value === 'A' || document.getElementById('dns-type').value === 'CNAME'
+  };
+  try {
+    const r = await fetch('/api/cloudflare/dns', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.success) { document.getElementById('dns-add-form').style.display='none'; loadCloudflare(); }
+    else alert('❌ ' + JSON.stringify(d.errors));
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+async function deleteDns(id, name) {
+  if (!confirm(`Delete DNS record "${name}"?`)) return;
+  try {
+    await fetch('/api/cloudflare/dns/' + id, { method:'DELETE' });
+    loadCloudflare();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ─── Lambda auto-refresh ──────────────────────────────────────────────────────
+let lambdaInterval  = null;
+let lambdaCountdown = 60;
+let lambdaCountdownTick = null;
+
+function toggleLambdaAutoRefresh() {
+  const on = document.getElementById('lambda-autorefresh').checked;
+  const cdEl = document.getElementById('lambda-countdown');
+  if (on) {
+    cdEl.style.display = 'inline';
+    startLambdaCountdown();
+    lambdaInterval = setInterval(() => {
+      loadLambda();
+      startLambdaCountdown();
+    }, 60000);
+  } else {
+    stopLambdaAutoRefresh();
+  }
+}
+
+function startLambdaCountdown() {
+  clearInterval(lambdaCountdownTick);
+  lambdaCountdown = 60;
+  const cdEl = document.getElementById('lambda-countdown');
+  if (cdEl) cdEl.textContent = '60s';
+  lambdaCountdownTick = setInterval(() => {
+    lambdaCountdown--;
+    if (cdEl) cdEl.textContent = lambdaCountdown + 's';
+    if (lambdaCountdown <= 0) clearInterval(lambdaCountdownTick);
+  }, 1000);
+}
+
+function stopLambdaAutoRefresh() {
+  clearInterval(lambdaInterval);
+  clearInterval(lambdaCountdownTick);
+  lambdaInterval = null;
+  const cdEl = document.getElementById('lambda-countdown');
+  if (cdEl) cdEl.style.display = 'none';
+  const cb = document.getElementById('lambda-autorefresh');
+  if (cb) cb.checked = false;
+}
+
+// ─── Lambda ───────────────────────────────────────────────────────────────────
+async function loadLambda() {
+  const fn    = document.getElementById('lambda-fn').value;
+  const hours = document.getElementById('lambda-hours').value;
+
+  try {
+    const [fns, metrics] = await Promise.all([
+      api('/api/aws/lambda/functions'),
+      api(`/api/aws/lambda/metrics?hours=${hours}${fn?'&function='+fn:''}`)
+    ]);
+
+    // populate function filter
+    const cur = document.getElementById('lambda-fn').value;
+    document.getElementById('lambda-fn').innerHTML =
+      '<option value="">All functions</option>' +
+      fns.map(f => `<option${f.name===cur?' selected':''}>${f.name}</option>`).join('');
+
+    // summary cards
+    const get = id => metrics.find(m => m.Id === id);
+    const sum = arr => (arr||[]).reduce((s,v)=>s+(v||0),0);
+    const avg = arr => arr?.length ? arr.reduce((s,v)=>s+(v||0),0)/arr.filter(v=>v>0).length : 0;
+
+    const inv = sum(get('invocations')?.Values);
+    const err = sum(get('errors')?.Values);
+    const dur = avg(get('duration')?.Values);
+    const thr = sum(get('throttles')?.Values);
+
+    document.getElementById('lambda-cards').innerHTML = `
+      <div class="card blue"><div class="card-label">Invocations</div><div class="card-value">${inv.toFixed(0)}</div><div class="card-sub">last ${hours}h</div></div>
+      <div class="card ${err>0?'red':'green'}"><div class="card-label">Errors</div><div class="card-value">${err.toFixed(0)}</div><div class="card-sub">${inv>0?(err/inv*100).toFixed(1)+'% error rate':'—'}</div></div>
+      <div class="card blue"><div class="card-label">Avg Duration</div><div class="card-value">${dur.toFixed(0)}<span style="font-size:14px">ms</span></div><div class="card-sub">per invocation</div></div>
+      <div class="card ${thr>0?'yellow':'green'}"><div class="card-label">Throttles</div><div class="card-value">${thr.toFixed(0)}</div><div class="card-sub">last ${hours}h</div></div>
+    `;
+
+    // charts
+    const labels = (get('invocations')?.Timestamps || [])
+      .map(t => new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+
+    const chartDefs = [
+      { id:'inv', metric:'invocations', label:'Invocations', color:'#38bdf8' },
+      { id:'err', metric:'errors',      label:'Errors',      color:'#f87171' },
+      { id:'dur', metric:'duration',    label:'Duration ms', color:'#a78bfa' },
+      { id:'thr', metric:'throttles',   label:'Throttles',   color:'#fbbf24' }
+    ];
+
+    chartDefs.forEach(({ id, metric, label, color }) => {
+      const canvas = document.getElementById('chart-' + id);
+      const values = get(metric)?.Values || [];
+      if (charts[id]) charts[id].destroy();
+      charts[id] = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label, data: values, borderColor: color,
+            backgroundColor: color + '22', fill: true,
+            tension: 0.4, pointRadius: 2 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color:'#64748b', maxTicksLimit: 6 }, grid: { color:'#2a2d3e' } },
+            y: { ticks: { color:'#64748b' }, grid: { color:'#2a2d3e' }, beginAtZero: true }
+          }
+        }
+      });
+    });
+
+    // functions table
+    document.getElementById('lambda-tbody').innerHTML = fns.map(f => `
+      <tr>
+        <td class="mono">${f.name}</td>
+        <td><span class="badge normal">${f.runtime}</span></td>
+        <td>${f.memory} MB</td>
+        <td>${f.timeout}s</td>
+        <td style="color:var(--muted)">${fmtBytes(f.size)}</td>
+        <td style="color:var(--muted);font-size:12px">${new Date(f.modified).toLocaleString()}</td>
+      </tr>`).join('');
+
+  } catch(e) {
+    document.getElementById('lambda-cards').innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+// ─── Troubleshoot ─────────────────────────────────────────────────────────────
+async function loadTroubleshoot() {
+  document.getElementById('diag-tbody').innerHTML        = '<tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr>';
+  document.getElementById('diag-events-tbody').innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
+  document.getElementById('svc-tbody').innerHTML         = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
+  document.getElementById('pvc-tbody').innerHTML         = '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+
+  try {
+    const [diag, svcs, pvcs] = await Promise.all([
+      api('/api/diagnostics'),
+      api('/api/services'),
+      api('/api/pvcs')
+    ]);
+
+    const { issues, warnings } = diag;
+    const critical = issues.filter(i => i.severity === 'critical').length;
+    const warnCount = issues.filter(i => i.severity === 'warning').length;
+
+    document.getElementById('diag-cards').innerHTML = `
+      <div class="card ${critical > 0 ? 'red' : 'green'}">
+        <div class="card-label">Critical Issues</div>
+        <div class="card-value">${critical}</div>
+        <div class="card-sub">${critical === 0 ? 'All clear' : 'Action required'}</div>
+      </div>
+      <div class="card ${warnCount > 0 ? 'yellow' : 'green'}">
+        <div class="card-label">Warnings</div>
+        <div class="card-value">${warnCount}</div>
+        <div class="card-sub">${warnCount === 0 ? 'All clear' : 'Review recommended'}</div>
+      </div>
+      <div class="card blue">
+        <div class="card-label">Services</div>
+        <div class="card-value">${svcs.length}</div>
+        <div class="card-sub">${svcs.filter(s => s.type === 'NodePort').length} NodePort, ${svcs.filter(s => s.type === 'LoadBalancer').length} LB</div>
+      </div>
+      <div class="card blue">
+        <div class="card-label">PVCs</div>
+        <div class="card-value">${pvcs.length}</div>
+        <div class="card-sub">${pvcs.filter(p => p.status === 'Bound').length} bound, ${pvcs.filter(p => p.status !== 'Bound').length} unbound</div>
+      </div>
+    `;
+
+    const sevBadge = s => s === 'critical'
+      ? '<span class="badge failed">critical</span>'
+      : '<span class="badge warning">warning</span>';
+    const catColor = { node: 'var(--accent)', pod: 'var(--yellow)', pvc: 'var(--purple)' };
+
+    document.getElementById('diag-tbody').innerHTML = issues.length
+      ? issues.map(i => `
+        <tr>
+          <td>${sevBadge(i.severity)}</td>
+          <td><span style="color:${catColor[i.category]||'var(--muted)'}">${i.category}</span></td>
+          <td class="mono" style="font-size:11px">${i.resource}</td>
+          <td style="font-size:12px;color:var(--muted)">${i.message}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">✅ No issues detected</td></tr>';
+
+    document.getElementById('diag-events-tbody').innerHTML = warnings.length
+      ? warnings.map(e => `
+        <tr>
+          <td style="color:var(--muted)">${e.namespace}</td>
+          <td class="mono" style="font-size:11px">${e.object}</td>
+          <td style="color:var(--yellow)">${e.reason}</td>
+          <td style="max-width:300px;font-size:12px;color:var(--muted)">${e.message}</td>
+          <td>${e.count}</td>
+          <td style="color:var(--muted);font-size:12px">${e.lastSeen ? new Date(e.lastSeen).toLocaleTimeString() : '—'}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">No warning events</td></tr>';
+
+    document.getElementById('svc-count').textContent = `${svcs.length} services`;
+    document.getElementById('svc-tbody').innerHTML = svcs.map(s => `
+      <tr>
+        <td style="color:var(--muted)">${s.namespace}</td>
+        <td class="mono">${s.name}</td>
+        <td><span class="badge ${s.type === 'LoadBalancer' ? 'running' : s.type === 'NodePort' ? 'warning' : 'normal'}">${s.type}</span></td>
+        <td class="mono" style="color:var(--muted)">${s.clusterIP}</td>
+        <td class="mono" style="font-size:11px">${s.ports.join(', ') || '—'}</td>
+        <td style="color:var(--muted)">${fmtAge(s.age)}</td>
+      </tr>`).join('');
+
+    document.getElementById('pvc-count').textContent = `${pvcs.length} PVCs`;
+    document.getElementById('pvc-tbody').innerHTML = pvcs.map(p => `
+      <tr>
+        <td style="color:var(--muted)">${p.namespace}</td>
+        <td class="mono">${p.name}</td>
+        <td>${statusBadge(p.status === 'Bound' ? 'Ready' : p.status === 'Pending' ? 'Pending' : 'Failed')}</td>
+        <td>${p.capacity}</td>
+        <td class="mono" style="color:var(--muted)">${p.storageClass}</td>
+        <td style="color:var(--muted);font-size:12px">${(p.accessModes || []).join(', ')}</td>
+        <td style="color:var(--muted)">${fmtAge(p.age)}</td>
+      </tr>`).join('');
+
+  } catch(e) {
+    document.getElementById('diag-cards').innerHTML = `<div class="error-msg">⚠ ${e.message}</div>`;
+  }
+}
+
+// ─── PWA: Service Worker + Install Prompt ────────────────────────────────────
+let _pwaDeferred = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('[PWA] Service worker registered, scope:', reg.scope);
+  }).catch(err => {
+    console.warn('[PWA] Service worker registration failed:', err);
+  });
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaDeferred = e;
+  document.getElementById('pwa-install-btn').style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+  _pwaDeferred = null;
+  document.getElementById('pwa-install-btn').style.display = 'none';
+  console.log('[PWA] App installed');
+});
+
+function pwaInstall() {
+  if (!_pwaDeferred) return;
+  _pwaDeferred.prompt();
+  _pwaDeferred.userChoice.then(choice => {
+    console.log('[PWA] User choice:', choice.outcome);
+    _pwaDeferred = null;
+    document.getElementById('pwa-install-btn').style.display = 'none';
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadOverview();
+
+// ─── Training banner dismiss ──────────────────────────────────────────────────
+(function() {
+  const BANNER_KEY = 'cloudless-manager-training-dismissed';
+  const banner = document.getElementById('training-banner');
+  if (sessionStorage.getItem(BANNER_KEY)) {
+    banner.style.display = 'none';
+  }
+  document.getElementById('training-banner-close').addEventListener('click', function() {
+    sessionStorage.setItem(BANNER_KEY, '1');
+    banner.style.display = 'none';
+  });
+})();
+</script>
+
+<!-- Training / non-commercial notice -->
+<div id="training-banner" role="note" aria-label="Training project notice">
+  <p>
+    <strong>⚠ Training &amp; Portfolio Project</strong> —
+    This tool is built for educational purposes only.
+    It is not a commercial service and does not operate in a production capacity.
+  </p>
+  <button id="training-banner-close" aria-label="Dismiss">✕</button>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="96" fill="#0f1117"/>
+  <!-- Cloud shape in accent blue -->
+  <g fill="#38bdf8">
+    <!-- Main cloud body -->
+    <ellipse cx="256" cy="290" rx="130" ry="80"/>
+    <!-- Left bump -->
+    <ellipse cx="170" cy="255" rx="72" ry="62"/>
+    <!-- Right bump -->
+    <ellipse cx="330" cy="240" rx="80" ry="68"/>
+    <!-- Center top bump -->
+    <ellipse cx="248" cy="210" rx="88" ry="72"/>
+  </g>
+  <!-- Subtle highlight lines -->
+  <rect x="196" y="310" width="120" height="12" rx="6" fill="#0f1117" opacity="0.3"/>
+  <rect x="216" y="332" width="80" height="10" rx="5" fill="#0f1117" opacity="0.2"/>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "cloudless-manager",
+  "version": "1.0.0",
+  "description": "Web management dashboard for cloudless.online k3s cluster",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.750.0",
+    "@aws-sdk/client-lambda": "^3.750.0",
+    "@kubernetes/client-node": "^1.4.0",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}

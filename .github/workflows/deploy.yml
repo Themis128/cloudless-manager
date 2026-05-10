@@ -1,0 +1,70 @@
+name: Deploy to Pi
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server.js"
+      - "package.json"
+      - "Dockerfile"
+      - "public/**"
+      - "k8s/deployment.yaml"
+
+  workflow_dispatch:
+    inputs:
+      skip_sync:
+        description: "Skip file sync (restart only)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  deploy:
+    name: Build & rollout
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PI_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 192.168.1.128 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Sync files to Pi
+        if: ${{ github.event.inputs.skip_sync != 'true' }}
+        run: |
+          REMOTE="tbaltzakis@192.168.1.128:/home/tbaltzakis/cloudless-manager"
+          OPTS="-o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519"
+
+          ssh $OPTS tbaltzakis@192.168.1.128 \
+            "mkdir -p /home/tbaltzakis/cloudless-manager/public/icons /home/tbaltzakis/cloudless-manager/k8s"
+
+          for f in server.js package.json Dockerfile public/index.html public/manifest.json public/sw.js k8s/deployment.yaml; do
+            if [ -f "$f" ]; then
+              scp $OPTS "$f" "$REMOTE/$f"
+              echo "  OK  $f"
+            fi
+          done
+
+      - name: Deploy on Pi
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 \
+            tbaltzakis@192.168.1.128 \
+            "bash /home/tbaltzakis/cloudless-manager/deploy.sh"
+
+      - name: Verify
+        run: |
+          echo "Waiting 15s for rollout..."
+          sleep 15
+          STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+            --connect-timeout 10 \
+            https://manage.cloudless.online/ || echo "000")
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "302" ]; then
+            echo "::warning::manage.cloudless.online returned $STATUS — check pod logs"
+          fi

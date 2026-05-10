@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full bleed background (maskable: safe zone is center 80%) -->
+  <rect width="512" height="512" fill="#0f1117"/>
+  <!-- Cloud shape — kept within safe zone (center 410x410, ~51px inset each side) -->
+  <g fill="#38bdf8">
+    <ellipse cx="256" cy="300" rx="110" ry="68"/>
+    <ellipse cx="180" cy="268" rx="62" ry="54"/>
+    <ellipse cx="322" cy="254" rx="68" ry="58"/>
+    <ellipse cx="250" cy="224" rx="76" ry="62"/>
+  </g>
+  <!-- Lines hint -->
+  <rect x="206" y="318" width="100" height="10" rx="5" fill="#0f1117" opacity="0.3"/>
+  <rect x="222" y="338" width="68" height="8" rx="4" fill="#0f1117" opacity="0.2"/>
+</svg>
