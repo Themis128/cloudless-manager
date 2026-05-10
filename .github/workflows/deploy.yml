@@ -18,17 +18,28 @@ on:
         default: "false"
         type: boolean
 
+permissions:
+  contents: read
+  packages: write   # needed to push to GHCR
+
 jobs:
   deploy:
     name: Build & rollout
     runs-on: [self-hosted, omv]
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync files to Pi working directory
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync source files to working directory
         if: ${{ github.event.inputs.skip_sync != 'true' }}
         run: |
           DEST="/home/tbaltzakis/cloudless-manager"
@@ -44,17 +55,34 @@ jobs:
             fi
           done
 
-      - name: Build & rollout
-        run: bash /home/tbaltzakis/cloudless-manager/deploy.sh
+      - name: Build & push image to GHCR
+        run: |
+          IMAGE="ghcr.io/themis128/cloudless-manager:latest"
+          docker build -t "$IMAGE" /home/tbaltzakis/cloudless-manager
+          docker push "$IMAGE"
+
+      - name: Apply deployment manifest
+        run: |
+          kubectl apply -f /home/tbaltzakis/cloudless-manager/k8s/deployment.yaml
+
+      - name: Rolling restart
+        run: |
+          kubectl -n cloudless rollout restart deployment/cloudless-manager
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n cloudless rollout status deployment/cloudless-manager --timeout=120s
+
+      - name: Show pod placement
+        run: |
+          kubectl -n cloudless get pods -l app=cloudless-manager -o wide
 
       - name: Verify HTTP
         run: |
-          echo "Waiting 20s for pod to become ready..."
-          sleep 20
+          sleep 10
           STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
-            --connect-timeout 10 \
-            https://manage.cloudless.online/ || echo "000")
+            --connect-timeout 10 https://manage.cloudless.online/ || echo "000")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" != "200" ] && [ "$STATUS" != "302" ]; then
-            echo "::warning::manage.cloudless.online returned $STATUS — check pod logs"
+            echo "::warning::manage.cloudless.online returned $STATUS"
           fi
