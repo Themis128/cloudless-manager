@@ -10,9 +10,9 @@ spec:
     - match: Host(`manage.cloudless.online`)
       kind: Rule
       middlewares:
-        - name: oauth2-proxy
-          namespace: cloudless
         - name: secure-headers
+          namespace: cloudless
+        - name: oauth2-proxy
           namespace: cloudless
       services:
         - name: oauth2-proxy
