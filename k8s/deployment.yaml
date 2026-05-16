@@ -6,15 +6,15 @@ metadata:
   labels:
     app: cloudless-manager
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # maxSurge: 0 — required for hard podAntiAffinity on a 2-node cluster.
-      # With only 2 nodes and 1-pod-per-node enforced, there is no room for
-      # a surge pod. Terminate first (maxUnavailable: 1), then place new pod.
-      maxUnavailable: 1
-      maxSurge: 0
+      # maxSurge: 1 / maxUnavailable: 0 — zero-downtime rollout.
+      # Single replica on omv (Pi5 8GB); omv-ha (Pi4 1GB) has ~455Mi
+      # Kubernetes-allocatable RAM which is insufficient (OOM exit 137, 2026-05-16).
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: cloudless-manager
@@ -24,17 +24,10 @@ spec:
         app: cloudless-manager
     spec:
       serviceAccountName: cloudless-manager
-      affinity:
-        podAntiAffinity:
-          # Hard rule: one pod per node. On a 2-node cluster this means
-          # true HA — each node runs exactly one replica. If a node goes
-          # down the surviving pod keeps the service up; the evicted pod
-          # stays Pending until the node recovers.
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app: cloudless-manager
-              topologyKey: kubernetes.io/hostname
+      # Pin to omv (Pi5 8GB). omv-ha (Pi4 1GB) has insufficient RAM:
+      # ~455Mi Kubernetes-allocatable after system/kube reservations.
+      nodeSelector:
+        kubernetes.io/hostname: omv
       containers:
         - name: cloudless-manager
           image: ghcr.io/themis128/cloudless-manager:latest
