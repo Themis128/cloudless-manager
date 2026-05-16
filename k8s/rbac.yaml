@@ -7,27 +7,54 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cloudless-manager
+  name: cloudless-manager-reader
 rules:
   - apiGroups: [""]
-    resources: [nodes, namespaces, pods, pods/log, events, services, endpoints, persistentvolumeclaims]
-    verbs: [get, list, watch]
+    resources: [nodes,namespaces,pods,pods/log,events,services,persistentvolumeclaims]
+    verbs: [get,list,watch]
   - apiGroups: ["apps"]
-    resources: [deployments, replicasets, statefulsets, daemonsets]
-    verbs: [get, list, watch, patch]
+    resources: [deployments,replicasets,statefulsets,daemonsets]
+    verbs: [get,list,watch]
   - apiGroups: ["metrics.k8s.io"]
-    resources: [nodes, pods]
-    verbs: [get, list]
+    resources: [nodes,pods]
+    verbs: [get,list]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cloudless-manager
+  name: cloudless-manager-reader
 subjects:
   - kind: ServiceAccount
     name: cloudless-manager
     namespace: cloudless
 roleRef:
   kind: ClusterRole
-  name: cloudless-manager
+  name: cloudless-manager-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cloudless-manager-writer
+  namespace: cloudless
+rules:
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloudless-manager-writer
+  namespace: cloudless
+subjects:
+  - kind: ServiceAccount
+    name: cloudless-manager
+    namespace: cloudless
+roleRef:
+  kind: Role
+  name: cloudless-manager-writer
   apiGroup: rbac.authorization.k8s.io
