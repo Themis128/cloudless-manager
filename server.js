@@ -39,13 +39,15 @@ function rateLimit(req, res, next) {
   next();
 }
 app.use(rateLimit);
+// Prune expired entries to prevent unbounded Map growth
+setInterval(()=>{const now=Date.now();for(const[k,v]of rlMap)if(now>v.reset)rlMap.delete(k);},RL_WINDOW);
 
 // ── CSRF guard for mutation endpoints (checks XHR/fetch signal) ───────────────
 function csrfGuard(req, res, next) {
   const xrw  = req.headers['x-requested-with'];
   const orig = req.headers['origin'];
   // Accept if the request carries either the XHR marker or a same-origin header
-  if (xrw === 'XMLHttpRequest' || orig?.includes('cloudless.online') || orig?.includes('localhost')) {
+  if (xrw === 'XMLHttpRequest' || orig?.includes('cloudless.online')) {
     return next();
   }
   audit(req, 'csrf_rejected', { method: req.method, path: req.path });
@@ -126,6 +128,12 @@ const awsConfig = {
 const cwClient     = new CloudWatchClient(awsConfig);
 const lambdaClient = new LambdaClient(awsConfig);
 
+// ── Server error helper ──────────────────────────────────────────────────────
+function serverError(res, e) {
+  process.stderr.write(JSON.stringify({ ts: new Date().toISOString(), err: e.message }) + '\n');
+  res.status(500).json({ error: 'Internal server error' });
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // K8s Routes  —  @kubernetes/client-node v1.x: responses are direct objects
 //               (not {response, body} tuples); namespaced methods use object params
@@ -155,14 +163,14 @@ app.get('/api/nodes', async (req, res) => {
       };
     });
     res.json(nodes);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/namespaces', async (req, res) => {
   try {
     const body = await coreApi.listNamespace();
     res.json(body.items.map(n => n.metadata.name).sort());
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/pods', async (req, res) => {
@@ -187,7 +195,7 @@ app.get('/api/pods', async (req, res) => {
       };
     });
     res.json(pods);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/deployments', async (req, res) => {
@@ -206,7 +214,7 @@ app.get('/api/deployments', async (req, res) => {
       image:     d.spec.template.spec.containers[0]?.image || '—'
     }));
     res.json(deps);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.post('/api/deployments/:namespace/:name/restart', csrfGuard, async (req, res) => {
@@ -220,7 +228,7 @@ app.post('/api/deployments/:namespace/:name/restart', csrfGuard, async (req, res
     );
     audit(req, 'deployment_restart', { namespace, name });
     res.json({ success: true, message: `${namespace}/${name} restarted` });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.patch('/api/deployments/:namespace/:name/scale', csrfGuard, async (req, res) => {
@@ -236,7 +244,7 @@ app.patch('/api/deployments/:namespace/:name/scale', csrfGuard, async (req, res)
     );
     audit(req, 'deployment_scale', { namespace, name, replicas });
     res.json({ success: true, message: `${namespace}/${name} scaled to ${replicas}` });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.delete('/api/pods/:namespace/:name', csrfGuard, async (req, res) => {
@@ -245,7 +253,7 @@ app.delete('/api/pods/:namespace/:name', csrfGuard, async (req, res) => {
     await coreApi.deleteNamespacedPod({ name, namespace });
     audit(req, 'pod_delete', { namespace, name });
     res.json({ success: true, message: `${namespace}/${name} deleted` });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/pods/:namespace/:name/logs', async (req, res) => {
@@ -255,7 +263,7 @@ app.get('/api/pods/:namespace/:name/logs', async (req, res) => {
     const tailLines  = parseInt(req.query.lines) || 200;
     const body = await coreApi.readNamespacedPodLog({ name, namespace, container, tailLines });
     res.json({ logs: body });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/events', async (req, res) => {
@@ -277,7 +285,7 @@ app.get('/api/events', async (req, res) => {
         lastSeen:   e.lastTimestamp || e.eventTime
       }));
     res.json(events);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/pvcs', async (req, res) => {
@@ -294,7 +302,7 @@ app.get('/api/pvcs', async (req, res) => {
       age:          p.metadata.creationTimestamp
     }));
     res.json(pvcs);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/services', async (req, res) => {
@@ -309,7 +317,7 @@ app.get('/api/services', async (req, res) => {
       age:       s.metadata.creationTimestamp
     }));
     res.json(svcs);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/diagnostics', async (req, res) => {
@@ -380,7 +388,7 @@ app.get('/api/diagnostics', async (req, res) => {
       }));
 
     res.json({ issues, warnings });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -391,7 +399,7 @@ app.get('/api/cloudflare/dns', async (req, res) => {
   try {
     const data = await cfFetch(`/zones/${CF_ZONE_ID}/dns_records?per_page=100`);
     res.json(data.result || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.post('/api/cloudflare/dns', csrfGuard, async (req, res) => {
@@ -402,7 +410,7 @@ app.post('/api/cloudflare/dns', csrfGuard, async (req, res) => {
     });
     audit(req, 'dns_create', { body: req.body });
     res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.delete('/api/cloudflare/dns/:id', csrfGuard, async (req, res) => {
@@ -410,7 +418,7 @@ app.delete('/api/cloudflare/dns/:id', csrfGuard, async (req, res) => {
     const data = await cfFetch(`/zones/${CF_ZONE_ID}/dns_records/${req.params.id}`, { method: 'DELETE' });
     audit(req, 'dns_delete', { recordId: req.params.id });
     res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/cloudflare/tunnel', async (req, res) => {
@@ -429,7 +437,7 @@ app.get('/api/cloudflare/tunnel', async (req, res) => {
     // OR if the app itself is reachable (we're behind this tunnel right now)
     const healthy = t.status === 'healthy' || activeConns.length > 0 || t.connections_count > 0;
     res.json({ tunnel: t, connections: activeConns, healthy });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/cloudflare/certs', async (req, res) => {
@@ -445,7 +453,7 @@ app.get('/api/cloudflare/certs', async (req, res) => {
       result.push({ type: 'universal', status: 'active', hosts: ['*.cloudless.online', 'cloudless.online'] });
     }
     res.json(result);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -465,7 +473,7 @@ app.get('/api/aws/lambda/functions', async (req, res) => {
       size:     f.CodeSize
     }));
     res.json(fns);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 app.get('/api/aws/lambda/metrics', async (req, res) => {
@@ -513,7 +521,7 @@ app.get('/api/aws/lambda/metrics', async (req, res) => {
     });
     const data = await cwClient.send(cmd);
     res.json(data.MetricDataResults || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { serverError(res, e); }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -540,6 +548,9 @@ wss.on('connection', async (ws, req) => {
   const cont  = url.searchParams.get('container') || null;
   const lines = parseInt(url.searchParams.get('lines') || '50');
 
+  const user = req.headers['x-auth-request-user'];
+  if (!user) { ws.close(1008, 'Unauthorized'); return; }
+
   if (!ns || !pod) { ws.close(1008, 'namespace and pod required'); return; }
 
   ws.send(JSON.stringify({ type: 'info', message: `Streaming logs for ${ns}/${pod}…` }));
@@ -554,13 +565,13 @@ wss.on('connection', async (ws, req) => {
 
   try {
     const logReq = await k8sLog.log(ns, pod, cont, logStream, (err) => {
-      if (err) ws.send(JSON.stringify({ type: 'error', message: err.message }));
+      if (err) { process.stderr.write(err.message); ws.send(JSON.stringify({type:'error',message:'Stream error'})); }
       ws.close();
     }, { follow: true, tailLines: lines });
 
     ws.on('close', () => logReq?.abort?.());
   } catch (e) {
-    ws.send(JSON.stringify({ type: 'error', message: e.message }));
+    process.stderr.write(e.message); ws.send(JSON.stringify({type:'error',message:'Stream error'}));
     ws.close();
   }
 });
