@@ -42,10 +42,13 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Build & push arm64 image to GHCR
+        # Tag with the commit SHA (immutable, for pinned/reproducible deploys)
+        # plus :latest (convenience). The deploy job pins the SHA tag.
         run: |
-          IMAGE="ghcr.io/themis128/cloudless-manager:latest"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
+          IMAGE="ghcr.io/themis128/cloudless-manager"
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
 
   deploy:
     name: Roll out on k3s
@@ -69,9 +72,11 @@ jobs:
 
       - name: Apply manifest & roll out
         run: |
+          # Apply the manifest (picks up any deployment.yaml changes), then pin
+          # the exact SHA-tagged image — reproducible deploys, precise rollback.
           kubectl apply -f k8s/deployment.yaml
-          kubectl -n cloudless rollout restart deployment/cloudless-manager
-          # maxSurge:0 + hard anti-affinity = sequential pod replacement.
+          kubectl -n cloudless set image deployment/cloudless-manager \
+            cloudless-manager=ghcr.io/themis128/cloudless-manager:${{ github.sha }}
           kubectl -n cloudless rollout status deployment/cloudless-manager --timeout=300s
 
       - name: Show pod placement
