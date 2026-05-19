@@ -362,8 +362,10 @@ app.get('/api/diagnostics', async (req, res) => {
           issues.push({ severity: 'critical', category: 'pod', resource: ref, message: `OOMKilled (${c.name})` });
       }
 
-      if (totalRestarts >= 5)
-        issues.push({ severity: totalRestarts >= 20 ? 'critical' : 'warning', category: 'pod', resource: ref, message: `High restarts: ${totalRestarts}` });
+      // Only flag restarts if pod is not healthy, or extremely high (>=100)
+      const isHealthy = p.status.phase === 'Running' && allCs.every(c => c.ready);
+      if (totalRestarts >= (isHealthy ? 100 : 30))
+        issues.push({ severity: totalRestarts >= 100 ? 'critical' : 'warning', category: 'pod', resource: ref, message: `High restarts: ${totalRestarts}` });
     }
 
     for (const pvc of pvcs.items) {
@@ -427,6 +429,13 @@ app.get('/api/cloudflare/tunnel', async (req, res) => {
       cfFetch(`/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${CF_TUNNEL_ID}`),
       cfFetch(`/accounts/${CF_ACCOUNT_ID}/cfd_tunnel/${CF_TUNNEL_ID}/connections`)
     ]);
+    // Gracefully handle CF API auth errors (e.g. cfut_ tunnel service token lacks tunnel:read)
+    if (!tunnel.success) {
+      const code = tunnel.errors?.[0]?.code;
+      const msg  = tunnel.errors?.[0]?.message || 'CF API error';
+      return res.json({ tunnel: { status: 'unknown' }, connections: [], healthy: null,
+        error: code === 10000 ? 'CF API token lacks tunnel:read permission' : msg });
+    }
     const t = tunnel.result || {};
     const allConns = conns.result || [];
     // cloudflared reports connections per-connector; flatten and filter active ones
